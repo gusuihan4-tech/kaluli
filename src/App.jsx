@@ -1,11 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { 
+  initSupabase, 
+  signUpUser, 
+  signInUser, 
+  signOutUser, 
+  getCurrentUser,
+  syncFoodLogs,
+  fetchFoodLogs
+} from './supabaseClient';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     return localStorage.getItem('currentUser') || '';
   });
   const [inputUsername, setInputUsername] = useState('');
+  const [inputEmail, setInputEmail] = useState('');
+  const [inputPassword, setInputPassword] = useState('');
+  const [showCloudAuth, setShowCloudAuth] = useState(false);
+  const [supabaseUser, setSupabaseUser] = useState(null);
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
+  
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -16,11 +32,95 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
 
-  // 获取当前用户的数据存储键
   const getUserDataKey = (user) => `food_logs_${user}`;
   const currentDataKey = currentUser ? getUserDataKey(currentUser) : 'food_logs';
+  const supabaseInitialized = initSupabase() !== null;
 
-  // 登录处理
+  // 检查 Supabase 用户状态
+  useEffect(() => {
+    if (!supabaseInitialized) return;
+
+    const checkAuth = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          setSupabaseUser(user);
+          setCloudSyncEnabled(true);
+        }
+      } catch (err) {
+        console.error('Auth check error:', err);
+      }
+    };
+
+    checkAuth();
+  }, [supabaseInitialized]);
+
+  // 云端登录/注册
+  const handleCloudSignUp = async () => {
+    if (!inputEmail.trim() || !inputPassword.trim()) {
+      alert('请输入邮箱和密码');
+      return;
+    }
+    try {
+      const { error } = await signUpUser(inputEmail.trim(), inputPassword.trim());
+      if (error) {
+        alert(`注册失败: ${error.message}`);
+      } else {
+        alert('注册成功！请查收邮件并确认');
+        setInputEmail('');
+        setInputPassword('');
+        setShowCloudAuth(false);
+      }
+    } catch (err) {
+      alert(`注册异常: ${err.message}`);
+    }
+  };
+
+  const handleCloudSignIn = async () => {
+    if (!inputEmail.trim() || !inputPassword.trim()) {
+      alert('请输入邮箱和密码');
+      return;
+    }
+    try {
+      const { error } = await signInUser(inputEmail.trim(), inputPassword.trim());
+      if (error) {
+        alert(`登录失败: ${error.message}`);
+      } else {
+        const user = await getCurrentUser();
+        setSupabaseUser(user);
+        setCloudSyncEnabled(true);
+        setInputEmail('');
+        setInputPassword('');
+        setShowCloudAuth(false);
+        setSyncStatus('已连接');
+        // 尝试从云端加载数据
+        const cloudLogs = await fetchFoodLogs(user.id);
+        if (cloudLogs && currentUser) {
+          localStorage.setItem(currentDataKey, JSON.stringify(cloudLogs));
+          loadHistory();
+          updateStats();
+        }
+      }
+    } catch (err) {
+      alert(`登录异常: ${err.message}`);
+    }
+  };
+
+  const handleCloudSignOut = async () => {
+    try {
+      await signOutUser();
+      setSupabaseUser(null);
+      setCloudSyncEnabled(false);
+      setSyncStatus('已断开');
+      setInputEmail('');
+      setInputPassword('');
+      setShowCloudAuth(false);
+    } catch (err) {
+      alert(`退出失败: ${err.message}`);
+    }
+  };
+
+  // 本地登录处理
   const handleLogin = () => {
     if (!inputUsername.trim()) {
       alert('请输入用户名');
@@ -52,16 +152,19 @@ export default function App() {
       updateStats();
     }
     
-    // PWA install prompt
     const handleBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setShowInstall(true);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    // 尝试在上线时将离线队列中的分析请求发送出去
+    
     const onOnline = () => {
       flushPendingAnalyses();
+      // 网络恢复时尝试同步
+      if (cloudSyncEnabled && supabaseUser && currentUser) {
+        syncToCloud();
+      }
     };
     window.addEventListener('online', onOnline);
 
@@ -69,7 +172,7 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('online', onOnline);
     };
-  }, [currentUser]);
+  }, [currentUser, cloudSyncEnabled, supabaseUser]);
 
   const loadHistory = () => {
     const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
@@ -227,6 +330,79 @@ export default function App() {
           <p>✓ 支持离线使用</p>
           <p>✓ 每个用户独立记录</p>
         </div>
+
+        {supabaseInitialized && (
+          <div className="section" style={{ borderTop: '1px solid #eee', marginTop: '16px', paddingTop: '16px' }}>
+            <h2>☁️ 云端同步（可选）</h2>
+            <p style={{ marginBottom: '12px', color: '#666', fontSize: '14px' }}>
+              {supabaseUser 
+                ? `已登录: ${supabaseUser.email}`
+                : '使用邮箱账号启用多设备数据同步'
+              }
+            </p>
+            {!supabaseUser ? (
+              <button 
+                className="secondary" 
+                onClick={() => setShowCloudAuth(!showCloudAuth)}
+                style={{ width: '100%' }}
+              >
+                {showCloudAuth ? '❌ 隐藏' : '☁️ 启用云同步'}
+              </button>
+            ) : (
+              <button 
+                className="secondary" 
+                onClick={handleCloudSignOut}
+                style={{ width: '100%', background: '#ffebee', color: '#d32f2f' }}
+              >
+                退出云账号
+              </button>
+            )}
+
+            {showCloudAuth && !supabaseUser && (
+              <div style={{ marginTop: '12px', padding: '12px', background: '#f9f9f9', borderRadius: '6px' }}>
+                <input
+                  type="email"
+                  placeholder="邮箱"
+                  value={inputEmail}
+                  onChange={(e) => setInputEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    marginBottom: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <input
+                  type="password"
+                  placeholder="密码"
+                  value={inputPassword}
+                  onChange={(e) => setInputPassword(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCloudSignIn();
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    marginBottom: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={handleCloudSignIn} style={{ flex: 1, fontSize: '12px' }}>登录</button>
+                  <button onClick={handleCloudSignUp} style={{ flex: 1, fontSize: '12px', background: '#e8f5e9', color: '#2e7d32' }}>注册</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -248,6 +424,11 @@ export default function App() {
     setPreview(null);
     loadHistory();
     updateStats();
+
+    // 后台异步同步到云端（非阻塞式）
+    if (cloudSyncEnabled && supabaseUser && currentUser) {
+      syncToCloud();
+    }
   };
 
   const deleteHistory = (idx) => {
@@ -256,6 +437,30 @@ export default function App() {
     localStorage.setItem(currentDataKey, JSON.stringify(logs));
     loadHistory();
     updateStats();
+
+    // 后台异步同步删除操作
+    if (cloudSyncEnabled && supabaseUser && currentUser) {
+      syncToCloud();
+    }
+  };
+
+  // 后台无阻塞同步到云端
+  const syncToCloud = async () => {
+    if (!cloudSyncEnabled || !supabaseUser || !currentUser) return;
+
+    setSyncStatus('同步中...');
+    try {
+      const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
+      const success = await syncFoodLogs(supabaseUser.id, currentUser, logs);
+      if (success) {
+        setSyncStatus('已同步');
+      } else {
+        setSyncStatus('同步失败（将在网络恢复时重试）');
+      }
+    } catch (err) {
+      console.error('Sync error:', err);
+      setSyncStatus('同步失败（网络问题）');
+    }
   };
 
   const handleInstall = () => {
@@ -287,18 +492,23 @@ export default function App() {
       )}
 
       <div className="header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h1>🍎 食物卡路里记录</h1>
             <small>拍照识别，智能统计</small>
           </div>
-          <div style={{ textAlign: 'right', fontSize: '13px' }}>
-            <div style={{ color: '#fff', marginBottom: '4px' }}>用户: <strong>{currentUser}</strong></div>
+          <div style={{ textAlign: 'right', fontSize: '12px' }}>
+            <div style={{ color: '#fff', marginBottom: '4px' }}>👤 {currentUser}</div>
+            {cloudSyncEnabled && (
+              <div style={{ color: '#c8e6c9', marginBottom: '4px', fontSize: '11px' }}>
+                ☁️ {syncStatus || '已连接'}
+              </div>
+            )}
             <button
               onClick={handleLogout}
               style={{
                 padding: '4px 12px',
-                fontSize: '12px',
+                fontSize: '11px',
                 background: 'rgba(255,255,255,0.3)',
                 color: '#fff',
                 border: 'none',
