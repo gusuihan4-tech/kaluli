@@ -199,11 +199,37 @@ vars = {
 2. 调整请求体格式（如果需要）
 3. 解析响应中的 food prediction 字段
 
+## 错误监控与性能跟踪（Sentry）
+
+本应用集成了 Sentry，用于捕获前端错误、性能问题和 Service Worker 故障。
+
+### 配置
+
+在 `.env` 或 `.env.local` 中添加 Sentry DSN：
+
+```bash
+VITE_SENTRY_DSN="https://your-sentry-dsn@sentry.io/your-project-id"
+```
+
+获取 DSN：登录 https://sentry.io → 创建新项目（选 React）→ 复制 DSN。
+
+### 功能
+
+- **错误捕获**：React 组件崩溃、JavaScript 异常、Service Worker 错误
+- **性能监控**：页面加载、API 响应时间（sample rate 10%）
+- **会话重放**：错误时自动录制用户操作（privacy-safe）
+- **离线队列**：分析失败时上报到 Sentry
+
+### 本地开发
+
+若未设置 `VITE_SENTRY_DSN`，Sentry 会以非操作模式初始化（不上报，仅打印日志）。
+
 ## 隐私与安全
 
 - 图片在浏览器端转换为 base64 后才上传至 Cloudflare Workers
 - 历史记录存储在本地 localStorage（不上传到服务器）
 - 建议在生产环境中实现用户认证与加密存储
+- Sentry 会话重放仅在错误时启用，且会自动掩盖文本与媒体内容
 
 ## 后续改进
 

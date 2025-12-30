@@ -119,10 +119,16 @@ export default function App() {
       } catch (err) {
         // 网络或服务器出错，入队以便稍后重试
         console.error('分析失败，入队重试：', err);
+        if (window.__SENTRY__) {
+          window.__SENTRY__.captureException(err);
+        }
         enqueueAnalysis(dataUrl);
       }
     } catch (err) {
       console.error(err);
+      if (window.__SENTRY__) {
+        window.__SENTRY__.captureException(err);
+      }
       setResult({ error: `❌ 错误：${err.message}` });
     } finally {
       setAnalyzing(false);
