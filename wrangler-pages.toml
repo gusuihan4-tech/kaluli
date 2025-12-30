@@ -1,0 +1,21 @@
+lang = "en"
+compatibility_date = "2024-01-01"
+
+name = "food-calorie-pwa"
+main = "dist/index.html"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npm run build"
+cwd = "/Users/chiye/kaluli"
+watch_paths = ["src/**"]
+
+[env.production]
+name = "food-calorie-pwa"
+route = "https://food-calorie.pages.dev/*"
+zone_id = "YOUR_ZONE_ID"
+
+[env.staging]
+name = "food-calorie-pwa-staging"
+route = "https://food-calorie-staging.pages.dev/*"
+zone_id = "YOUR_ZONE_ID"

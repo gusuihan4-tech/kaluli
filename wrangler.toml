@@ -1,0 +1,13 @@
+name = "food-calorie-pwa"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[env.development]
+name = "food-calorie-pwa-dev"
+# DEEPSEEK_API_KEY must NOT be committed. Set it via `wrangler secret put`.
+vars = { MOCK = "true" }
+
+[env.production]
+name = "food-calorie-pwa"
+# DEEPSEEK_API_KEY must NOT be committed. Set it via `wrangler secret put`.
+vars = { MOCK = "false" }
