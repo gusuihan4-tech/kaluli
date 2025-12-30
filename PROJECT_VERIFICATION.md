@@ -23,9 +23,9 @@ npm install
 ```
 - 成功安装 143 个包
 - 核心依赖已安装：
-  - React 18.2.0
-  - Vite 4.4.0
-  - Wrangler 3.12.0
+  - React 18.3.1
+  - Vite 4.5.14
+  - Wrangler 3.114.16
   - @sentry/react 8.0.0
   - @supabase/supabase-js 2.38.0
 
@@ -74,14 +74,12 @@ npm run workers
 
 **终端 1 - 启动 Cloudflare Workers API 服务**
 ```bash
-cd /home/runner/work/kaluli/kaluli
 npm run workers
 ```
 服务将在 http://localhost:8787 启动
 
 **终端 2 - 启动 Vite 前端开发服务器**
 ```bash
-cd /home/runner/work/kaluli/kaluli
 npm run dev
 ```
 服务将在 http://localhost:5173 启动
