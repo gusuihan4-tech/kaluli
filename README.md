@@ -224,12 +224,36 @@ VITE_SENTRY_DSN="https://your-sentry-dsn@sentry.io/your-project-id"
 
 若未设置 `VITE_SENTRY_DSN`，Sentry 会以非操作模式初始化（不上报，仅打印日志）。
 
+## 云端同步（Supabase）
+
+本应用支持可选的云端数据同步（Supabase），允许用户在多设备间同步食物记录。**采用离线优先设计**，即使无网络仍可正常使用。
+
+### 启用云同步
+
+1. 创建 Supabase 项目（见 [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)）
+2. 在 `.env.local` 中配置：
+   ```bash
+   VITE_SUPABASE_URL="https://your-project.supabase.co"
+   VITE_SUPABASE_ANON_KEY="your-anon-key"
+   ```
+3. 应用启动时会自动初始化同步
+
+### 关于中国使用
+
+⚠️ Supabase 服务器可能在中国访问不稳定。应用的离线优先设计确保：
+- 数据始终保存到本地 `localStorage`
+- 有网络时后台无阻塞同步
+- 无网络时完全可用
+
+详见 [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) 的完整配置与故障排查。
+
 ## 隐私与安全
 
 - 图片在浏览器端转换为 base64 后才上传至 Cloudflare Workers
 - 历史记录存储在本地 localStorage（不上传到服务器）
 - 建议在生产环境中实现用户认证与加密存储
 - Sentry 会话重放仅在错误时启用，且会自动掩盖文本与媒体内容
+- Supabase 数据采用行级安全（RLS），每个用户只能访问自己的数据
 
 ## 后续改进
 
