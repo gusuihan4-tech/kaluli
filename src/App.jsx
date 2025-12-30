@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    return localStorage.getItem('currentUser') || '';
+  });
+  const [inputUsername, setInputUsername] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -12,10 +16,41 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
 
-  // 加载历史记录与统计
-  useEffect(() => {
+  // 获取当前用户的数据存储键
+  const getUserDataKey = (user) => `food_logs_${user}`;
+  const currentDataKey = currentUser ? getUserDataKey(currentUser) : 'food_logs';
+
+  // 登录处理
+  const handleLogin = () => {
+    if (!inputUsername.trim()) {
+      alert('请输入用户名');
+      return;
+    }
+    const username = inputUsername.trim();
+    setCurrentUser(username);
+    localStorage.setItem('currentUser', username);
+    setInputUsername('');
     loadHistory();
     updateStats();
+  };
+
+  // 退出登录
+  const handleLogout = () => {
+    setCurrentUser('');
+    localStorage.removeItem('currentUser');
+    setFile(null);
+    setPreview(null);
+    setResult(null);
+    setHistory([]);
+    setStats({ todayTotal: 0, todayCount: 0, totalCount: 0 });
+  };
+
+  // 加载历史记录与统计
+  useEffect(() => {
+    if (currentUser) {
+      loadHistory();
+      updateStats();
+    }
     
     // PWA install prompt
     const handleBeforeInstall = (e) => {
@@ -34,15 +69,15 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('online', onOnline);
     };
-  }, []);
+  }, [currentUser]);
 
   const loadHistory = () => {
-    const logs = JSON.parse(localStorage.getItem('food_logs') || '[]');
+    const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
     setHistory(logs);
   };
 
   const updateStats = () => {
-    const logs = JSON.parse(localStorage.getItem('food_logs') || '[]');
+    const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const todayLogs = logs.filter(l => l.t >= todayStart);
@@ -151,7 +186,50 @@ export default function App() {
       }
     }
   };
-
+  if (!currentUser) {
+    return (
+      <div className="app">
+        <div className="header">
+          <h1>🍎 食物卡路里记录</h1>
+          <small>拍照识别，智能统计</small>
+        </div>
+        <div className="section">
+          <h2>👤 登录</h2>
+          <p style={{ marginBottom: '12px', color: '#666', fontSize: '14px' }}>
+            输入用户名开始使用。每个用户的记录独立存储，离线可用。
+          </p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="输入你的用户名（例如：小明）"
+              value={inputUsername}
+              onChange={(e) => setInputUsername(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleLogin();
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '14px',
+              }}
+            />
+            <button className="primary" onClick={handleLogin}>
+              登录
+            </button>
+          </div>
+        </div>
+        <div className="section" style={{ fontSize: '13px', color: '#999' }}>
+          <p>✓ 数据保存在本地浏览器，不会上传到服务器</p>
+          <p>✓ 支持离线使用</p>
+          <p>✓ 每个用户独立记录</p>
+        </div>
+      </div>
+    );
+  }
   const handleSave = () => {
     if (!result?.predictions) return;
 
@@ -161,9 +239,9 @@ export default function App() {
     }));
     const total = items.reduce((s, i) => s + (i.calories || 0), 0);
 
-    const logs = JSON.parse(localStorage.getItem('food_logs') || '[]');
+    const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
     logs.push({ t: Date.now(), meal: mealType, items, total });
-    localStorage.setItem('food_logs', JSON.stringify(logs));
+    localStorage.setItem(currentDataKey, JSON.stringify(logs));
 
     setResult(null);
     setFile(null);
@@ -173,9 +251,9 @@ export default function App() {
   };
 
   const deleteHistory = (idx) => {
-    const logs = JSON.parse(localStorage.getItem('food_logs') || '[]');
+    const logs = JSON.parse(localStorage.getItem(currentDataKey) || '[]');
     logs.splice(idx, 1);
-    localStorage.setItem('food_logs', JSON.stringify(logs));
+    localStorage.setItem(currentDataKey, JSON.stringify(logs));
     loadHistory();
     updateStats();
   };
@@ -209,8 +287,29 @@ export default function App() {
       )}
 
       <div className="header">
-        <h1>🍎 食物卡路里记录</h1>
-        <small>拍照识别，智能统计</small>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>🍎 食物卡路里记录</h1>
+            <small>拍照识别，智能统计</small>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '13px' }}>
+            <div style={{ color: '#fff', marginBottom: '4px' }}>用户: <strong>{currentUser}</strong></div>
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '4px 12px',
+                fontSize: '12px',
+                background: 'rgba(255,255,255,0.3)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              切换用户
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="section">
