@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 import App from './App';
 
 // Initialize Sentry for error tracking and performance monitoring
@@ -9,8 +8,8 @@ Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN || '',
   environment: import.meta.env.MODE,
   integrations: [
-    new BrowserTracing(),
-    new Sentry.Replay({
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration({
       maskAllText: true,
       blockAllMedia: true,
     }),
