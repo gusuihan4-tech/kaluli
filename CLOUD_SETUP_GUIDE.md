@@ -385,7 +385,7 @@ npx wrangler deploy --env production
 
 - **Cloudflare Dashboard**: https://dash.cloudflare.com
 - **Supabase Dashboard**: https://supabase.com/dashboard
-- **GitHub Actions**: https://github.com/你的用户名/kaluli/actions
+- **GitHub Actions**: https://github.com/{your-username}/kaluli/actions
 - **Sentry Dashboard**: https://sentry.io
 
 ### 常用命令
