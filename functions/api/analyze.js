@@ -1,27 +1,6 @@
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    
-    // CORS 处理 (如果在不同域名开发)
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-      });
-    }
+export async function onRequestPost(context) {
+  const { request, env } = context;
 
-    if (url.pathname === '/api/analyze' && request.method === 'POST') {
-      return handleAnalyze(request, env);
-    }
-
-    return jsonResponse({ error: 'Not Found' }, 404);
-  },
-};
-
-async function handleAnalyze(request, env) {
   try {
     let body = {};
     try {
@@ -48,9 +27,10 @@ async function handleAnalyze(request, env) {
     }
 
     // 1. 获取配置
-    const API_KEY = env.AI_API_KEY; // 在 wrangler secret put 设置
-    const API_BASE = env.AI_BASE_URL || 'https://api.openai.com/v1'; // 默认为 OpenAI，也可改为 DeepSeek 的兼容地址
-    const MODEL = env.AI_MODEL_NAME || 'gpt-4o-mini'; // 推荐使用支持视觉的模型
+    // 注意：在 Pages Functions 中，环境变量通过 env 获取，需要在 Pages 设置里添加
+    const API_KEY = env.AI_API_KEY || env.DEEPSEEK_API_KEY; 
+    const API_BASE = env.AI_BASE_URL || 'https://api.openai.com/v1'; 
+    const MODEL = env.AI_MODEL_NAME || 'gpt-4o-mini'; 
 
     if (!API_KEY) {
       return jsonResponse({ success: false, error: 'Server configuration error: AI_API_KEY missing' }, 500);
@@ -72,11 +52,9 @@ async function handleAnalyze(request, env) {
       Do not include markdown formatting like \`\`\`json. Just raw JSON.
     `;
 
-    // 4. 调用 AI API (OpenAI Chat Completions 兼容格式)
+    // 4. 调用 AI API
     const endpoint = `${API_BASE}/chat/completions`;
     
-    console.log(`Calling AI: ${endpoint} with model ${MODEL}`);
-
     const aiResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -95,9 +73,7 @@ async function handleAnalyze(request, env) {
             ]
           }
         ],
-        max_tokens: 500,
-        // 如果模型支持 JSON 模式，可以取消注释下面这行
-        // response_format: { type: "json_object" } 
+        max_tokens: 500
       })
     });
 
@@ -117,7 +93,6 @@ async function handleAnalyze(request, env) {
     // 5. 解析结果
     let result;
     try {
-      // 清理可能存在的 markdown 标记
       const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
       result = JSON.parse(jsonStr);
     } catch (e) {
@@ -136,7 +111,7 @@ async function handleAnalyze(request, env) {
     return jsonResponse({ success: true, predictions });
 
   } catch (err) {
-    console.error('Worker Error:', err);
+    console.error('Function Error:', err);
     return jsonResponse({ success: false, error: err.message }, 500);
   }
 }
@@ -150,8 +125,7 @@ function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 
-      'Content-Type': 'application/json',
-      "Access-Control-Allow-Origin": "*", 
+      'Content-Type': 'application/json'
     },
   });
 }

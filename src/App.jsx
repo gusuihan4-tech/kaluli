@@ -194,8 +194,8 @@ export default function App() {
       }
 
       // 发送请求
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-      const resp = await fetch(`${apiBase}/api/analyze`, {
+      // 使用相对路径，Cloudflare Pages Functions 会自动处理 /api/analyze
+      const resp = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl }),

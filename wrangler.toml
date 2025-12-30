@@ -2,12 +2,14 @@ name = "food-calorie-pwa"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
+# Development environment
 [env.development]
 name = "food-calorie-pwa-dev"
-# DEEPSEEK_API_KEY must NOT be committed. Set it via `wrangler secret put`.
 vars = { MOCK = "true" }
+# To set AI_API_KEY: npx wrangler secret put AI_API_KEY --env development
 
+# Production environment
 [env.production]
 name = "food-calorie-pwa"
-# DEEPSEEK_API_KEY must NOT be committed. Set it via `wrangler secret put`.
-vars = { MOCK = "false" }
+vars = { MOCK = "false", AI_BASE_URL = "https://api.openai.com/v1", AI_MODEL_NAME = "gpt-4o-mini" }
+# To set Key: npx wrangler secret put AI_API_KEY --env production
